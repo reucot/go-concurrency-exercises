@@ -11,12 +11,53 @@
 //   2. If SIGINT is called again, just kill the program (last resort)
 //
 
+//******************** - Добавленный код
+
 package main
 
+import (
+	"os"
+	"os/signal"
+	"syscall"
+)
+
 func main() {
+	//********************
+	sigChan := make(chan os.Signal, 2)
+	signal.Notify(sigChan,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT)
+	//********************
+
 	// Create a process
 	proc := MockProcess{}
 
 	// Run the process (blocking)
-	proc.Run()
+	go proc.Run()
+
+	//********************
+	exit_chan := make(chan int)
+	go func() {
+		for {
+			s := <-sigChan
+			switch s {
+
+			case syscall.SIGINT:
+				proc.Stop()
+
+			case syscall.SIGTERM:
+				exit_chan <- 0
+
+			case syscall.SIGQUIT:
+				exit_chan <- 0
+
+			default:
+				exit_chan <- 1
+			}
+		}
+	}()
+	exitCode := <-exit_chan
+	os.Exit(exitCode)
+	//********************
 }

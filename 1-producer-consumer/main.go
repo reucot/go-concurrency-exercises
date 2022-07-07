@@ -6,6 +6,8 @@
 // as the consumer can run concurrently
 //
 
+//******************** - Добавленный код
+
 package main
 
 import (
@@ -13,19 +15,50 @@ import (
 	"time"
 )
 
-func producer(stream Stream) (tweets []*Tweet) {
+//********************
+var tweets chan Tweet
+
+//********************
+
+//Исходная версия
+// func producer(stream Stream) (tweets []*Tweet) {
+// 	for {
+// 		tweet, err := stream.Next()
+// 		if err == ErrEOF {
+// 			return tweets
+// 		}
+// 		tweets = append(tweets, tweet)
+// 	}
+// }
+
+// func consumer(tweets []*Tweet) {
+// 	for _, t := range tweets {
+// 		if t.IsTalkingAboutGo() {
+// 			fmt.Println(t.Username, "\ttweets about golang")
+// 		} else {
+// 			fmt.Println(t.Username, "\tdoes not tweet about golang")
+// 		}
+// 	}
+// }
+
+func producer(stream Stream) {
 	for {
 		tweet, err := stream.Next()
 		if err == ErrEOF {
-			return tweets
+			close(tweets)
+			return
 		}
-
-		tweets = append(tweets, tweet)
+		tweets <- *tweet
 	}
 }
 
-func consumer(tweets []*Tweet) {
-	for _, t := range tweets {
+func consumer() {
+	for {
+		t, ok := <-tweets
+		//Если канал закрыт, то больше нечего читать
+		if !ok {
+			return
+		}
 		if t.IsTalkingAboutGo() {
 			fmt.Println(t.Username, "\ttweets about golang")
 		} else {
@@ -37,12 +70,20 @@ func consumer(tweets []*Tweet) {
 func main() {
 	start := time.Now()
 	stream := GetMockStream()
+	//********************
+	//Создадим буферизированный канал
+	tweets = make(chan Tweet, 1)
+	//********************
 
-	// Producer
-	tweets := producer(stream)
+	//Исходная версия
+	// // Producer
+	// tweets := producer(stream)
 
-	// Consumer
-	consumer(tweets)
+	// // Consumer
+	// consumer(tweets)
+
+	go producer(stream)
+	go consumer()
 
 	fmt.Printf("Process took %s\n", time.Since(start))
 }
